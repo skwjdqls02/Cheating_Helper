@@ -3,9 +3,10 @@ from openai import OpenAI
 import os
 import carry_lange_easyocr
 
+KEY = "sk-..."
 
 client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY", "sk-...")
+    api_key=os.getenv("OPENAI_API_KEY", KEY)
 )
 
 def generate_chat_response(chat_message, role):
@@ -16,7 +17,7 @@ def generate_chat_response(chat_message, role):
                 {"role": "system", "content": "너는 교수님에게 답장을 보내는 대학생이야."},
                 {
                     "role": "user",
-                    "content": f"\n\n'{chat_message} 다음 대화 내용을 분석하고 {role}에게 보낼 답장만 만들어줘'"
+                    "content": f"\n\n'{chat_message} 다음은 [이름] : 대화로 구성 되어 있고 me : 는 내가 말한 내용이야. 다음 카톡 대화 내용을 분석하고 {role}에게 보낼 카톡 답장만 만들어줘'"
                 },
             ]
         )
