@@ -1,3 +1,6 @@
-import carry_lange_easyocr as cle
 
-print(cle.start_text())
+
+for i in range(0,3):
+    if i == 1:
+        i -= 1
+    print("ddd")

@@ -9,9 +9,6 @@ client = OpenAI(
 )
 
 def generate_chat_response(chat_message, role):
-    if client.api_key == "YOUR_API_KEY":
-        return "Error: Please set your OpenAI API key."
-
     try:
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -23,7 +20,7 @@ def generate_chat_response(chat_message, role):
                 },
             ]
         )
-        # The response content is accessed like this
+        
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"An error occurred with the OpenAI API: {e}"
@@ -34,6 +31,5 @@ if __name__ == '__main__':
     
     # Generate the response
     reply = generate_chat_response(chat_message, "교수님")
-    print(type(reply))
     
     print(f"\nGenerated Reply: {reply}")
