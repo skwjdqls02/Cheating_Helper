@@ -4,7 +4,7 @@ import cv2
 
 reader = easyocr.Reader(['ko', 'en'])
 
-img_path = './test_img'
+img_path = './uploads'
 re_img_path = './make_img'
 
 def img_resize(img_path, num):
@@ -74,10 +74,9 @@ def character_extraction(img_path):
         print(f"Error : file{img_path} not Find!")
     return full_text
 
-def start_text():
-    for i in range(1, 2):
-        img_resize(img_path + f'/kakao_img_{i}.png', i)
-        result = character_extraction(re_img_path + f'/re_img_{i}.png')
-        return result
-
-start_text()
+def start_easyocr(img_paths):
+    result = ""
+    for i in range (0, len(img_paths)):
+        img_resize(img_paths[i], i)
+        result += character_extraction(re_img_path + f'/re_img_{i}.png') + '\n'
+    return result
