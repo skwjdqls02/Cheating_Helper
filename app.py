@@ -4,8 +4,6 @@ import os
 import uuid
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
-# easyocr 이미지 처리를 위한 함수를 import 합니다.
-# 실제 함수 이름으로 변경해야 할 수 있습니다.
 from open_ai_api import start_open_ai_api
 
 app = Flask(__name__)
@@ -40,8 +38,7 @@ def upload_images(): # 함수 이름을 복수형으로 변경
                 file.save(filepath)
                 saved_filepaths.append(filepath)
 
-                # 이미지 처리 함수 호출
-                
+        # 이미지 처리 함수 호출
         extracted_text = start_open_ai_api(saved_filepaths)
         
         return jsonify({'results': extracted_text})
