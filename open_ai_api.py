@@ -1,37 +1,69 @@
-
-from openai import OpenAI
+from openai import AsyncOpenAI
 import os
+import asyncio
 import carry_lange_easyocr
 
+# It's recommended to use environment variables for API keys for better security.
 KEY = "sk-..."
 
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY", KEY)
+client = AsyncOpenAI(
+    api_key=KEY
 )
 
-def generate_chat_response(chat_message, role):
+async def generate_chat_response(chat_message, summary, role):
+    """Generates a chat response based on the conversation history."""
     try:
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": "너는 교수님에게 답장을 보내는 대학생이야."},
                 {
                     "role": "user",
-                    "content": f"\n\n'{chat_message} 다음은 [이름] : 대화로 구성 되어 있고 me : 는 내가 말한 내용이야. 다음 카톡 대화 내용을 분석하고 {role}에게 보낼 카톡 답장만 만들어줘'"
+                    "content": f"\n\n'{summary}이건 이전 대화 내용이야. 분석하고 다음 카톡 대화 내용을 분석해서 {role}에게 보낼 카톡 답장만 만들어줘.\n\n{chat_message}"
                 },
             ]
         )
-        
         return response.choices[0].message.content.strip()
     except Exception as e:
-        return f"An error occurred with the OpenAI API: {e}"
+        return f"An error occurred in generate_chat_response: {e}"
 
-def start_open_ai_api(img_paths):
-    chat_message = carry_lange_easyocr.start_easyocr(img_paths)
+async def summarize_chat_message(chat_message):
+    """Summarizes the chat conversation."""
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are an expert at summarizing conversations concisely."},
+                {
+                    "role": "user",
+                    "content": f"Please summarize the following conversation in Korean: \n\n{chat_message}"
+                },
+            ]
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"An error occurred in summarize_chat_message: {e}"
+
+async def start_open_ai_api(img_paths, previous_chat_summary, role):
+    """
+    Processes images to text, then concurrently generates a chat response and a summary.
+    """
+    # 1. easyocr을 호출하여 chat_message와 title을 받습니다. (반환값이 2개)
+    chat_message, found_title = carry_lange_easyocr.start_easyocr(img_paths)
     print(f"Original Message: {chat_message}")
+    print(f"Found Title: {found_title}")
     
-    # Generate the response
-    reply = generate_chat_response(chat_message, "교수님")
+    # 2. 두 개의 API 호출을 병렬로 실행합니다.
+    response_task = generate_chat_response(chat_message, previous_chat_summary, role)
+    summary_task = summarize_chat_message(chat_message)
+    
+    reply, new_summary = await asyncio.gather(
+        response_task,
+        summary_task
+    )
     
     print(f"\nGenerated Reply: {reply}")
-    return reply
+    print(f"\nNew Summary: {new_summary}")
+    
+    # 3. 최종적으로 3개의 값을 반환합니다.
+    return reply, new_summary, found_title

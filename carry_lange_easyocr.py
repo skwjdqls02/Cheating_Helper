@@ -4,8 +4,12 @@ import cv2
 
 reader = easyocr.Reader(['ko', 'en'])
 
-img_path = './uploads'
-re_img_path = './make_img'
+# 경로를 상위 폴더로 수정
+re_img_path = 'make_img'
+
+# 모듈 수준의 전역 변수
+has_title = False
+title = ""
 
 def img_resize(img_path, num):
     size_up = 2.0
@@ -16,7 +20,11 @@ def img_resize(img_path, num):
     img_height = int(process_img.shape[0] * size_up)
     img_info = (img_width, img_height)
     
-    return cv2.imwrite(re_img_path + f'/re_img_{num}.png', cv2.resize(process_img, img_info, interpolation=cv2.INTER_CUBIC))
+    # re_img_path 디렉토리가 없으면 생성
+    if not os.path.exists(re_img_path):
+        os.makedirs(re_img_path)
+        
+    return cv2.imwrite(os.path.join(re_img_path, f're_img_{num}.png'), cv2.resize(process_img, img_info, interpolation=cv2.INTER_CUBIC))
 
 def is_sender(info):
     if info[0][0][0] > 250 and info[0][0][0] < 350:
@@ -36,47 +44,66 @@ def is_message(info):
     else:
         return False
 
+def is_title(info):
+    if info[0][0][0] > 430 and info[0][2][0] < 1500 and info[0][0][1] > 350 and info[0][2][1] < 500:
+        return True
+    else:
+        return False
+        
 def groupping_func(result):
+    global has_title, title
+    
     result_length = len(result)
     chat_content = []
     is_continue_chat = False
     
     for i in range(0, result_length):
+            if not(has_title):
+                if is_title(result[i]):
+                    has_title = True
+                    title += result[i][1]
             
-            if is_continue_chat :
-                chat_content[-1] += result[i][1]
-                
-                if is_sender(result[i + 1]) or is_user(result[i + 1]):
+            # A potential IndexError is guarded here.
+            if is_continue_chat:
+                chat_content[-1] += " " + result[i][1]
+                if i + 1 >= result_length or is_sender(result[i + 1]) or is_user(result[i + 1]):
                     is_continue_chat = False
-            
-            if is_sender(result[i]) and not(is_continue_chat):
+                continue
+
+            if is_sender(result[i]):
                 if i + 1 < result_length and is_message(result[i + 1]):
-                    chat_content.append(result[i][1] + " : ")
+                    chat_content.append(result[i][1] + " :")
                     is_continue_chat = True
             
-            elif is_user(result[i]) and not(is_continue_chat):
-                if i + 1 < result_length:
-                    chat_content.append("me : " + result[i][1])
-                    if is_user(result[i + 1]):
-                        is_continue_chat = True
+            elif is_user(result[i]):
+                chat_content.append("me : " + result[i][1])
+                if i + 1 < result_length and is_user(result[i + 1]):
+                    is_continue_chat = True
     
     return chat_content
                     
-
 def character_extraction(img_path):
     full_text = ""
     if os.path.exists(img_path):
-        
         result = groupping_func(reader.readtext(img_path))
-        for text in result:
-            full_text += text + '\n'
+        full_text = '\n'.join(result)
     else:
-        print(f"Error : file{img_path} not Find!")
+        print(f"Error : file {img_path} not Found!")
     return full_text
 
 def start_easyocr(img_paths):
-    result = ""
-    for i in range (0, len(img_paths)):
-        img_resize(img_paths[i], i)
-        result += character_extraction(re_img_path + f'/re_img_{i}.png') + '\n'
-    return result
+    global title, has_title
+    
+    # 함수 호출 시마다 title 상태 초기화
+    title = ""
+    has_title = False
+    
+    result_text = ""
+    
+    for i, path in enumerate(img_paths):
+        resized_img_path = os.path.join(re_img_path, f're_img_{i}.png')
+        img_resize(path, i)
+        result_text += character_extraction(resized_img_path) + '\n'
+        
+    # 추출된 텍스트와 제목을 함께 반환
+    return result_text, title
