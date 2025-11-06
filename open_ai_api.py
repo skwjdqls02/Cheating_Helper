@@ -19,13 +19,14 @@ async def generate_chat_response(chat_message, summary, role):
                 {"role": "system", "content": "너는 교수님에게 답장을 보내는 대학생이야."},
                 {
                     "role": "user",
-                    "content": f"\n\n'{summary}이건 이전 대화 내용이야. 분석하고 다음 카톡 대화 내용을 분석해서 {role}에게 보낼 카톡 답장만 만들어줘.\n\n{chat_message}"
+                    "content": f"\n\n'{summary}이건 이전 대화 내용이야. me는 나야. 저 내용과 다음 카톡 대화 내용을 분석해서 {chat_message} {role}에게 보낼 카톡 답장만 만들어줘."
                 },
             ]
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"An error occurred in generate_chat_response: {e}"
+
 
 async def summarize_chat_message(chat_message):
     """Summarizes the chat conversation."""

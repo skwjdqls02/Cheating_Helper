@@ -4,6 +4,7 @@ import cv2
 
 reader = easyocr.Reader(['ko', 'en'])
 
+
 # 경로를 상위 폴더로 수정
 re_img_path = 'make_img'
 
@@ -92,6 +93,7 @@ def character_extraction(img_path):
     return full_text
 
 def start_easyocr(img_paths):
+
     global title, has_title
     
     # 함수 호출 시마다 title 상태 초기화
