@@ -7,7 +7,7 @@ from typing import List
 from werkzeug.utils import secure_filename
 import traceback
 
-from open_ai_api import start_open_ai_api
+from open_ai_api import start_open_ai_api, regenerate_replies
 
 app = FastAPI()
 
@@ -33,16 +33,16 @@ async def upload_images(
             
             filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
             
-            # Save the uploaded file
+            # 사진 파일 저장 -> /uploads
             with open(filepath, "wb") as buffer:
                 buffer.write(await file.read())
             
             saved_filepaths.append(filepath)
 
-        # Call the existing async function
+        # 요청
         reply, new_summary, found_title = await start_open_ai_api(saved_filepaths, summary, role)
         
-        # Return the results as a dictionary
+        # 응답 json
         return {
             'results': reply,
             'summary': new_summary,
@@ -50,17 +50,34 @@ async def upload_images(
         }
 
     except Exception as e:
-        # Provide a more detailed error response
+        # 에러 표시
         return JSONResponse(
             status_code=500,
             content={'error': str(e), 'traceback': traceback.format_exc()}
         )
 
     finally:
-        # Clean up the saved files
+        # uploads에 임시 저장 사진 파일 지우기
         for filepath in saved_filepaths:
             if os.path.exists(filepath):
                 os.remove(filepath)
+
+@app.post("/regenerate")
+async def regenerate_response(
+    original_reply: str = Form(...),
+    modification_request: str = Form(...),
+    role: str = Form(...)
+):
+    try:
+        new_replies = await regenerate_replies(original_reply, modification_request, role)
+        return {
+            'results': new_replies
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={'error': str(e), 'traceback': traceback.format_exc()}
+        )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=5000)
