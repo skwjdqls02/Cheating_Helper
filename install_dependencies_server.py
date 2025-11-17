@@ -70,7 +70,8 @@ if __name__ == "__main__":
         "openai", 
         "torch", 
         "torchvision", 
-        "python-multipart"
+        "python-multipart",
+        "werkzeug"
     ]
     
     print("\nInstalling Python packages...")
