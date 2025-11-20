@@ -1,6 +1,8 @@
 import os
 import easyocr
 import cv2
+from PIL import Image
+import numpy as np
 
 reader = easyocr.Reader(['ko', 'en'])
 
@@ -13,34 +15,55 @@ has_title = False
 title = ""
 
 def img_resize(img_path, num):
-    size_up = 2.0
+    # --- Image Preprocessing ---
+    # 1. Use Pillow to open the image and convert RGBA to RGB
+    pil_img = Image.open(img_path).convert('RGB')
     
-    process_img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    # 2. Convert Pillow's RGB image to OpenCV's BGR format
+    process_img = np.array(pil_img)
+    process_img = cv2.cvtColor(process_img, cv2.COLOR_RGB2BGR)
+
+    # 3. Smartly resize the image if it's too large
+    MAX_WIDTH = 1200
+    height, width, _ = process_img.shape
     
-    img_width = int(process_img.shape[1] * size_up)
-    img_height = int(process_img.shape[0] * size_up)
-    img_info = (img_width, img_height)
-    
-    # re_img_path 디렉토리가 없으면 생성
+    if width > MAX_WIDTH:
+        # Calculate new height to maintain aspect ratio
+        new_height = int(MAX_WIDTH * height / width)
+        # Use INTER_AREA for shrinking, it's generally better
+        process_img = cv2.resize(process_img, (MAX_WIDTH, new_height), interpolation=cv2.INTER_AREA)
+
+    # 4. Convert the final image to Grayscale for OCR
+    gray_img = cv2.cvtColor(process_img, cv2.COLOR_BGR2GRAY)
+
+    # Create the output directory if it doesn't exist
     if not os.path.exists(re_img_path):
         os.makedirs(re_img_path)
         
-    return cv2.imwrite(os.path.join(re_img_path, f're_img_{num}.png'), cv2.resize(process_img, img_info, interpolation=cv2.INTER_CUBIC))
+    # 5. Save the processed image, overwriting if it exists
+    output_path = os.path.join(re_img_path, f're_img_{num}.png')
+    cv2.imwrite(output_path, gray_img)
 
 def is_sender(info):
-    if info[0][0][0] > 250 and info[0][0][0] < 350:
+    # Adjusted range for sender names based on debug output
+    top_left_x = info[0][0][0]
+    if top_left_x >= 130 and top_left_x <= 150:
         return True
     else:
         return False
 
 def is_user(info):
-    if info[0][1][0] > 2150 and info[0][1][0] <= 2250:
+    # Adjusted range for user messages (right-aligned) based on debug output and image width
+    top_left_x = info[0][0][0]
+    if top_left_x > 600 and top_left_x < 1100:
         return True
     else:
         return False
 
 def is_message(info):
-    if info[0][0][0] >= 350 and info[0][0][0] < 400:
+    # Adjusted range for sender messages based on debug output
+    top_left_x = info[0][0][0]
+    if top_left_x >= 160 and top_left_x <= 180:
         return True
     else:
         return False
@@ -86,7 +109,9 @@ def groupping_func(result):
 def character_extraction(img_path):
     full_text = ""
     if os.path.exists(img_path):
-        result = groupping_func(reader.readtext(img_path))
+        test = reader.readtext(img_path)
+        result = groupping_func(test)
+        print(test)##########################################################################
         full_text = '\n'.join(result)
     else:
         print(f"Error : file {img_path} not Found!")
