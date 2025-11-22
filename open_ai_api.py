@@ -9,18 +9,61 @@ client = AsyncOpenAI(
 )
 
 async def generate_chat_response(chat_message, summary, role):
+    """
+    대화 상대방(role)에 맞춰 변경하여 답장을 생성.
+    """
     
+    # role 역할별 맞춤(후에 더 자연스럽게 수정)
+    prompts = {
+        "교수님": (
+            "너는 예의 바르고 성실한 대학생이야. "
+            "교수님께 보내는 카톡이므로 정중한 존댓말(해요체/하십시오체 혼용)을 사용해. "
+            "이모티콘은 자제하고, 되도록 깔끔하고 명확하게 의사를 전달해. "
+            "문장은 완결된 형태(~했습니다, ~겠습니다, ~요)로 끝맺음해."
+        ),
+        "선배": (
+            "너는 센스 있고 싹싹한 후배야. "
+            "친한 선배에게 보내는 카톡이므로 예의를 지키되 너무 딱딱하지 않은 부드러운 존댓말(~요, ~는데요)을 사용해. "
+            "적절한 느낌표(!)나 물결(~)을 사용해서 밝은 분위기를 줘도 좋아."
+        ),
+        "친구": (
+            "너는 정말 친한 친구야. "
+            "완전한 반말(해체)을 사용해. (~했어, ~야, ~냐? 등) "
+            "너무 길게 쓰지 말고 진짜 친구랑 카톡하듯이 자연스럽게 줄임말이나 'ㅋㅋ', 'ㅠㅠ' 같은 표현을 적절히 섞어서 작성해."
+        ),
+        "후배": (
+            "너는 챙겨주는 따뜻한 선배야. "
+            "편하게 반말을 하되, 권위적이지 않고 친근하게 말해. "
+            "상대방을 배려하는 말투(~했니?, ~하자)를 사용해."
+        )
+    }
+
+    # role이 비어있거나, 딕셔너리에 없으면 기본값으로 교수님 설정(일단 기본값으로 존댓말을 쓰도록 설정해놓음)
+    selected_persona = prompts.get(role, prompts["교수님"])
+
+    #  공통 제약 사항 (형식 고정할 수 있도록)
+    common_constraints = (
+        "\n[절대 금지 사항]\n"
+        "- '제목:', '내용:', 'Subject:' 같은 이메일 서식 절대 금지.\n"
+        "- 답변 앞뒤에 괄호 ( ) 나 따옴표 \" \" 절대 넣지 말 것.\n"
+        "- 불필요한 인사말(예: 안녕하십니까, 000입니다)을 매번 반복하지 말고, 자연스러운 대화 흐름을 따를 것.\n"
+        "- 오직 상대방에게 전송할 '답장 텍스트'만 출력할 것."
+    )
+
+    system_instruction = selected_persona + common_constraints
+
+    user_content = (
+        f"상황 요약: {summary}\n"
+        f"상대방({role})이 보낸 메시지: {chat_message}\n\n"
+        f"위 내용을 바탕으로 '{role}'에게 보낼 자연스러운 카톡 답장을 작성해줘."
+    )
+
     try:
         response = await client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": f"너는 {role}에게 카카오톡 답장을 보내는 사람이야."},
-                {
-                    "role": "user",
-                    "content": f"이전 대화 요약: '{summary}'\n"
-                            f"분석할 카톡 대화 내용: '{chat_message}'\n"
-                            f"위 내용을 바탕으로 {role}에게 보낼 카톡 답장만 만들어줘."
-                },
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_content},
             ]
         )
         return response.choices[0].message.content.strip()
