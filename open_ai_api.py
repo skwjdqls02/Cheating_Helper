@@ -8,7 +8,7 @@ client = AsyncOpenAI(
     api_key=KEY
 )
 
-async def generate_chat_response(chat_message, summary, role):
+async def generate_chat_response(chat_message, lost_reply, role):
     """
     대화 상대방(role)에 맞춰 변경하여 답장을 생성.
     """
@@ -31,7 +31,7 @@ async def generate_chat_response(chat_message, summary, role):
     system_instruction = base_system_instruction + common_constraints
 
     user_content = (
-        f"상황 요약: {summary}\n"
+        f"이전에 맘에 든 스타일 답: {lost_reply}\n"
         f"상대방({role})이 보낸 메시지: {chat_message}\n\n"
         f"위 내용을 바탕으로 '{role}'에게 보낼 자연스러운 카톡 답장을 작성해줘."
     )
@@ -105,14 +105,14 @@ async def summarize_chat_message(chat_message):
     except Exception as e:
         return f"An error occurred in summarize_chat_message: {e}"
 
-async def start_open_ai_api(img_paths, previous_chat_summary, role):
+async def start_open_ai_api(img_paths, previous_reply, role):
     # 1. easyocr을 호출하여 chat_message와 title을 받습니다. (반환값이 2개)
     chat_message, found_title = carry_lange_easyocr.start_easyocr(img_paths)
     print(f"Original Message: {chat_message}")
     print(f"Found Title: {found_title}")
     
     # 2. 세 개의 API 호출을 병렬로 실행합니다.
-    response_tasks = [generate_chat_response(chat_message, previous_chat_summary, role) for _ in range(3)]
+    response_tasks = [generate_chat_response(chat_message, previous_reply, role) for _ in range(3)]
     summary_task = summarize_chat_message(chat_message)
     
     # asyncio.gather를 사용하여 모든 작업을 동시에 실행합니다.

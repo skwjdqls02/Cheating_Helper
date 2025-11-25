@@ -3,6 +3,7 @@ import easyocr
 import cv2
 from PIL import Image
 import numpy as np
+import re
 
 reader = easyocr.Reader(['ko', 'en'])
 
@@ -43,73 +44,67 @@ def img_resize(img_path, num):
     # 5. Save the processed image, overwriting if it exists
     output_path = os.path.join(re_img_path, f're_img_{num}.png')
     cv2.imwrite(output_path, gray_img)
+    return process_img.shape[1], process_img.shape[0] # Return height
 
-def is_sender(info):
-    # Adjusted range for sender names based on debug output
-    top_left_x = info[0][0][0]
-    if top_left_x >= 130 and top_left_x <= 150:
-        return True
-    else:
-        return False
 
-def is_user(info):
-    # Adjusted range for user messages (right-aligned) based on debug output and image width
-    top_left_x = info[0][1][0]
-    if top_left_x > 1030 and top_left_x < 1040:
+def is_ui_element(text, y_pos, image_height):
+    text = text.strip()
+    # Regex for "오전/오후/ HH:MM" or "오전/오후/ H.MM" or "오전/오후/ H*MM"
+    if re.fullmatch(r'(오전|오후|)\s*\d{1,2}[:.*]\d{1,2}', text):
         return True
-    else:
-        return False
-
-def is_message(info):
-    # Adjusted range for sender messages based on debug output
-    top_left_x = info[0][0][0]
-    if top_left_x >= 160 and top_left_x <= 190:
-        return True
-    else:
-        return False
-
-def is_title(info):
-    if info[0][0][0] > 150 and info[0][1][0] < 840 and info[0][0][1] > 125 and info[0][2][1] < 205:
-        return True
-    else:
-        return False
         
-def groupping_func(result):
-    global has_title, title
+    # Check for message input field (usually at the very bottom)
+    if y_pos > image_height * 0.93 or "메시지 입력" in text:
+        return True
     
-    result_length = len(result)
-    chat_content = []
-    is_continue_chat = False
+    elif y_pos <= image_height * 0.09:
+        return True
     
-    for i in range(0, result_length):
-            if not(has_title):
-                if is_title(result[i]):
-                    has_title = True
-                    title += result[i][1]
-            
-            # A potential IndexError is guarded here.
-            if is_continue_chat:
-                chat_content[-1] += " " + result[i][1]
-                if i + 1 >= result_length or is_sender(result[i + 1]) or is_user(result[i + 1]):
-                    is_continue_chat = False
-                continue
+    return False
 
-            if is_sender(result[i]):
-                if i + 1 < result_length and is_message(result[i + 1]):
-                    chat_content.append(result[i][1] + " :")
-                    is_continue_chat = True
-            
-            elif is_user(result[i]):
-                chat_content.append("me : " + result[i][1])
-                if i + 1 < result_length and is_user(result[i + 1]):
-                    is_continue_chat = True
+def groupping_func(result, image_height, image_width):
+    start = 0
+    end = 0
+    for i in range(0, len(result)):
+        if result[i][0][0][1] <= image_height * 0.09:
+            start = i
+        elif result[i][0][0][1] <= image_height * 0.9:
+            end = i
+    partial = result[start+1 : end + 1]
+    
+    # 왼쪽 위 x좌표 기준 정렬
+    partial_sorted = sorted(partial, key=lambda item: item[0][0][0])
+    min_x = partial_sorted[0][0][0][0]
+    chat_content = [""]
+    tmp = 5
+    sender_name = "sender"
+    
+    for i in range(0, len(result)):
+        if is_ui_element(result[i][1], result[i][0][0][1], image_height):
+            continue
+        
+        # me : 
+        elif (result[i][0][0][0] + result[i][0][1][0]) / 2 > ((image_width * 0.5) + tmp):
+            if image_width * 0.9 < result[i][0][1][0]:
+                chat_content.append(f'me:{result[i][1]}')
+        
+        # x축 기준 왼쪽 이름 or 전송 내용
+        elif (result[i][0][0][0] + result[i][0][1][0]) / 2 < ((image_width * 0.5) - tmp):
+            if result[i][0][0][0] - tmp <= min_x <= result[i][0][0][0] + tmp:
+                chat_content.append(f'{result[i][1]}:')
+            else:
+                if chat_content[-1][:2] == "me":
+                    chat_content.append(f"sender:{result[i][1]}")
+                chat_content[-1] += result[i][1]
     
     return chat_content
-                    
-def character_extraction(img_path):
+        
+    
+def character_extraction(img_path, image_height, image_width):
     full_text = ""
     if os.path.exists(img_path):
-        result = groupping_func(reader.readtext(img_path))
+        test = reader.readtext(img_path)
+        result = groupping_func(test, image_height, image_width)
         full_text = '\n'.join(result)
     else:
         print(f"Error : file {img_path} not Found!")
@@ -127,8 +122,9 @@ def start_easyocr(img_paths):
     
     for i, path in enumerate(img_paths):
         resized_img_path = os.path.join(re_img_path, f're_img_{i}.png')
-        img_resize(path, i)
-        result_text += character_extraction(resized_img_path) + '\n'
-        
-    # 추출된 텍스트와 제목을 함께 반환
+        width, height = img_resize(path, i)
+        result_text += character_extraction(resized_img_path, height, width) + '\n'
+        print(result_text)
     return result_text, title
+
+start_easyocr(['test_img/kakao_img_7.png'])

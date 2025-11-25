@@ -18,7 +18,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 @app.post("/upload")
 async def upload_images(
     files: List[UploadFile] = File(...),
-    summary: str = Form(None),
+    lost_reply: str = Form(None),
     role: str = Form(...)
 ):
     if not files:
@@ -40,7 +40,7 @@ async def upload_images(
             saved_filepaths.append(filepath)
 
         # 요청
-        reply, new_summary, found_title = await start_open_ai_api(saved_filepaths, summary, role)
+        reply, new_summary, found_title = await start_open_ai_api(saved_filepaths, lost_reply, role)
         
         # 응답 json
         return {
