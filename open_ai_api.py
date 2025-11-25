@@ -8,32 +8,37 @@ client = AsyncOpenAI(
     api_key=KEY
 )
 
+# 공통 페르소나 (사람 같은 말투)
+HUMAN_PERSONA_PROMPT = (
+    "너는 AI가 아니라, 지금 스마트폰으로 카카오톡 답장을 보내려는 '현실적인 한국 사람'이야. "
+    "교과서적인 문어체나 딱딱한 번역투는 절대 쓰지 마. "
+    "상황과 상대방과의 관계(친밀도)에 따라 말투를 유연하게 바꿔야 해.\n"
+    "- 친구/연인/썸: 'ㅋㅋㅋ', 'ㅠㅠ', '아 진짜?', 'ㅇㅇ' 같은 추임새나 줄임말을 적절히 섞어. 맞춤법에 너무 집착하지 마.\n"
+    "- 직장상사/어른/선배: 예의를 갖추되, 너무 로봇 같지 않은 '사회생활 만렙' 부하직원처럼 자연스럽게 존댓말을 써.\n"
+    "- 문장은 너무 길게 쓰지 말고, 카톡 특성상 짧게 끊어치는 느낌을 살려."
+)
+
+COMMON_CONSTRAINTS = (
+    "\n[형식 절대 금지 사항]\n"
+    "- '제목:', '내용:', 'Subject:' 같은 이메일 서식 금지.\n"
+    "- 답변 앞뒤에 쌍따옴표(\")나 괄호()를 넣지 말고, 오직 보낼 메시지 텍스트만 출력할 것.\n"
+    "- '안녕하세요 000입니다' 같은 불필요한 자기소개나 인사 반복 금지."
+)
+
 async def generate_chat_response(chat_message, lost_reply, role):
     """
     대화 상대방(role)에 맞춰 변경하여 답장을 생성.
     """
-    
-    base_system_instruction = (
-        "너는 사용자가 지정한 상대방(role)에게 보낼 자연스러운 카카오톡 답장을 생성하는 AI야. "
-        "주어진 상황 요약, 상대방 메시지, 그리고 상대방 역할(role)을 바탕으로 "
-        "한국어 카카오톡 대화 스타일에 가장 적합한 말투(존댓말, 반말 등)와 분위기를 스스로 판단하여 답장을 작성해. "
-    )
+    system_instruction = HUMAN_PERSONA_PROMPT + COMMON_CONSTRAINTS
 
-    #  공통 제약 사항 (형식 고정할 수 있도록)
-    common_constraints = (
-        "\n[절대 금지 사항]\n"
-        "- '제목:', '내용:', 'Subject:' 같은 이메일 서식 절대 금지.\n"
-        "- 답변 앞뒤에 괄호 ( ) 나 따옴표 \" \" 절대 넣지 말 것.\n"
-        "- 불필요한 인사말(예: 안녕하십니까, 000입니다)을 매번 반복하지 말고, 자연스러운 대화 흐름을 따를 것.\n"
-        "- 오직 상대방에게 전송할 '답장 텍스트'만 출력할 것."
-    )
-
-    system_instruction = base_system_instruction + common_constraints
-
+    # 사용자 입력 프롬프트 구체화
     user_content = (
-        f"이전에 맘에 든 스타일 답: {lost_reply}\n"
-        f"상대방({role})이 보낸 메시지: {chat_message}\n\n"
-        f"위 내용을 바탕으로 '{role}'에게 보낼 자연스러운 카톡 답장을 작성해줘."
+        f"상황 정보:\n"
+        f"1. 내 대화 상대방의 역할: {role}\n"
+        f"2. 상대방이 보낸 최근 메시지들:\n{chat_message}\n"
+        f"3. (참고) 내가 평소 선호하는 스타일/이전 답변: {lost_reply}\n\n"
+        f"지시: 위 대화의 흐름을 읽고, '{role}'에게 보낼 가장 센스 있고 적절한 답장을 하나만 딱 작성해줘. "
+        f"상대방이 {role}이라는 점을 고려해서 반말/존댓말 여부를 스스로 판단해."
     )
 
     try:
@@ -42,9 +47,10 @@ async def generate_chat_response(chat_message, lost_reply, role):
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_content},
-            ]
+            ],
+            temperature=0.8 # 창의성과 자연스러움을 위해 약간 높임 
         )
-        return response.choices[0].message.content.strip()
+        return response.choices[0].message.content.strip().strip('"').strip("'")
     except Exception as e:
         return f"An error occurred in generate_chat_response: {e}"
 
@@ -53,32 +59,31 @@ async def refine_chat_response(original_reply, modification_request, role):
     """
     재생성 요청 반영하여 답장을 생성.
     """
-    base_system_instruction = (
-        "너는 사용자가 지정한 상대방(role)에게 보낼 자연스러운 카카오톡 답장을 생성하는 AI야. "
-        "주어진 상황 요약, 상대방 메시지, 그리고 상대방 역할(role)을 바탕으로 "
-        "한국어 카카오톡 대화 스타일에 가장 적합한 말투(존댓말, 반말 등)와 분위기를 스스로 판단하여 답장을 작성해. "
-    )
-    common_constraints = (
-        "\n[절대 금지 사항]\n"
-        "- '제목:', '내용:', 'Subject:' 같은 이메일 서식 절대 금지.\n"
-        "- 답변 앞뒤에 괄호 ( ) 나 따옴표 \" \" 절대 넣지 말 것.\n"
-        "- 불필요한 인사말(예: 안녕하십니까, 000입니다)을 매번 반복하지 말고, 자연스러운 대화 흐름을 따를 것.\n"
-        "- 오직 상대방에게 전송할 '답장 텍스트'만 출력할 것."
+    system_instruction = HUMAN_PERSONA_PROMPT + COMMON_CONSTRAINTS
+    
+    # 재생성 전용 추가 구체화
+    refine_instruction = (
+        "\n[수정 지침]\n"
+        "사용자가 기존 답변이 마음에 들지 않아 수정을 요청했다. "
+        "단순히 문장을 다듬는 수준을 넘어, 사용자의 요청(modification_request)에 담긴 '의도'와 '감정'을 정확히 캐치해서 반영해.\n"
+        "예시) '더 차갑게' -> 단답형, 마침표 사용, 이모티콘 삭제.\n"
+        "예시) '더 친근하게' -> 'ㅋㅋㅋ' 추가, 물결표(~) 사용, 공감하는 말 추가."
     )
 
-    system_instruction = base_system_instruction + common_constraints
-    
-    # 사용자 요청을 추가한 user_content 생성
+    full_system_prompt = system_instruction + refine_instruction
+
     user_content = (
-        f"상대방({role})이 보낸 메시지: {original_reply}\n"
-        f"**답장 작성 시, 다음 지시사항을 반드시 반영해줘: {modification_request}**\n\n" 
-        f"위 내용을 바탕으로 '{role}'에게 보낼 자연스러운 카톡 답장을 다시 작성해줘."
+        f"상대방({role})에게 보내려던 원래 답장: \"{original_reply}\"\n"
+        f"**사용자의 수정 요청사항: \"{modification_request}\"**\n\n" 
+        f"위 요청사항을 완벽하게 반영해서, '{role}'에게 보낼 새로운 답장을 작성해줘. "
+        "요청사항이 말투 변경이면 확실하게 말투를 바꾸고, 내용 추가면 자연스럽게 녹여내."
     )
+    
     try:
         response = await client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": system_instruction},
+                {"role": "system", "content": full_system_prompt},
                 {"role": "user", "content": user_content},
             ],
             temperature=0.7 
@@ -94,10 +99,10 @@ async def summarize_chat_message(chat_message):
         response = await client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are an expert at summarizing conversations concisely."},
+                {"role": "system", "content": "너는 대화 내용을 핵심만 간결하게 3줄 이내로 요약하는 전문가야."},
                 {
                     "role": "user",
-                    "content": f"Please summarize the following conversation in Korean: \n\n{chat_message}"
+                    "content": f"다음 카카오톡 대화 내용을 한국어로 누가 어떤 상황인지 알 수 있게 요약해줘: \n\n{chat_message}"
                 },
             ]
         )
@@ -106,10 +111,9 @@ async def summarize_chat_message(chat_message):
         return f"An error occurred in summarize_chat_message: {e}"
 
 async def start_open_ai_api(img_paths, previous_reply, role):
-    # 1. easyocr을 호출하여 chat_message와 title을 받습니다. (반환값이 2개)
-    chat_message, found_title = carry_lange_easyocr.start_easyocr(img_paths)
+    # 1. easyocr을 호출하여 chat_message을 받습니다.
+    chat_message = carry_lange_easyocr.start_easyocr(img_paths)
     print(f"Original Message: {chat_message}")
-    print(f"Found Title: {found_title}")
     
     # 2. 세 개의 API 호출을 병렬로 실행합니다.
     response_tasks = [generate_chat_response(chat_message, previous_reply, role) for _ in range(3)]
@@ -129,7 +133,7 @@ async def start_open_ai_api(img_paths, previous_reply, role):
     print(f"\nNew Summary: {new_summary}")
     
     # 3. 최종적으로 3개의 값(응답 목록, 새 요약, 찾은 제목)을 반환합니다.
-    return replies, new_summary, found_title
+    return replies, new_summary
 
 async def regenerate_replies(original_reply, modification_request, role):
 

@@ -11,9 +11,7 @@ reader = easyocr.Reader(['ko', 'en'])
 # 경로를 상위 폴더로 수정
 re_img_path = 'make_img'
 
-# 모듈 수준의 전역 변수
-has_title = False
-title = ""
+
 
 def img_resize(img_path, num):
     # --- Image Preprocessing ---
@@ -70,14 +68,14 @@ def groupping_func(result, image_height, image_width):
             start = i
         elif result[i][0][0][1] <= image_height * 0.9:
             end = i
-    partial = result[start+1 : end + 1]
+    partial = result[start:end]
     
     # 왼쪽 위 x좌표 기준 정렬
     partial_sorted = sorted(partial, key=lambda item: item[0][0][0])
     min_x = partial_sorted[0][0][0][0]
     chat_content = [""]
     tmp = 5
-    sender_name = "sender"
+    in_name = False
     
     for i in range(0, len(result)):
         if is_ui_element(result[i][1], result[i][0][0][1], image_height):
@@ -85,17 +83,22 @@ def groupping_func(result, image_height, image_width):
         
         # me : 
         elif (result[i][0][0][0] + result[i][0][1][0]) / 2 > ((image_width * 0.5) + tmp):
-            if image_width * 0.9 < result[i][0][1][0]:
-                chat_content.append(f'me:{result[i][1]}')
+            if image_width * 0.8 < result[i][0][1][0]:
+                if chat_content[-1][:2] == "me":
+                    chat_content[-1] += result[i][1]
+                else:
+                    chat_content.append(f'me:{result[i][1]}')
         
         # x축 기준 왼쪽 이름 or 전송 내용
         elif (result[i][0][0][0] + result[i][0][1][0]) / 2 < ((image_width * 0.5) - tmp):
             if result[i][0][0][0] - tmp <= min_x <= result[i][0][0][0] + tmp:
                 chat_content.append(f'{result[i][1]}:')
+                in_name = True
             else:
-                if chat_content[-1][:2] == "me":
+                if not(in_name) and chat_content[-1][:2] == "me" and result[i][0][0][0] < image_width * 0.2:
                     chat_content.append(f"sender:{result[i][1]}")
-                chat_content[-1] += result[i][1]
+                else:
+                    chat_content[-1] += result[i][1]
     
     return chat_content
         
@@ -111,12 +114,6 @@ def character_extraction(img_path, image_height, image_width):
     return full_text
 
 def start_easyocr(img_paths):
-
-    global title, has_title
-    
-    # 함수 호출 시마다 title 상태 초기화
-    title = ""
-    has_title = False
     
     result_text = ""
     
@@ -124,7 +121,4 @@ def start_easyocr(img_paths):
         resized_img_path = os.path.join(re_img_path, f're_img_{i}.png')
         width, height = img_resize(path, i)
         result_text += character_extraction(resized_img_path, height, width) + '\n'
-        print(result_text)
-    return result_text, title
-
-start_easyocr(['test_img/kakao_img_7.png'])
+    return result_text

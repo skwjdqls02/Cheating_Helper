@@ -40,13 +40,12 @@ async def upload_images(
             saved_filepaths.append(filepath)
 
         # 요청
-        reply, new_summary, found_title = await start_open_ai_api(saved_filepaths, lost_reply, role)
+        reply, new_summary= await start_open_ai_api(saved_filepaths, lost_reply, role)
         
         # 응답 json
         return {
             'results': reply,
-            'summary': new_summary,
-            'title': found_title
+            'summary': new_summary
         }
 
     except Exception as e:
