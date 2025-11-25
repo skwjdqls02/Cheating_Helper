@@ -54,8 +54,8 @@ def is_sender(info):
 
 def is_user(info):
     # Adjusted range for user messages (right-aligned) based on debug output and image width
-    top_left_x = info[0][0][0]
-    if top_left_x > 600 and top_left_x < 1100:
+    top_left_x = info[0][1][0]
+    if top_left_x > 1030 and top_left_x < 1040:
         return True
     else:
         return False
@@ -63,13 +63,13 @@ def is_user(info):
 def is_message(info):
     # Adjusted range for sender messages based on debug output
     top_left_x = info[0][0][0]
-    if top_left_x >= 160 and top_left_x <= 180:
+    if top_left_x >= 160 and top_left_x <= 190:
         return True
     else:
         return False
 
 def is_title(info):
-    if info[0][0][0] > 430 and info[0][2][0] < 1500 and info[0][0][1] > 350 and info[0][2][1] < 500:
+    if info[0][0][0] > 150 and info[0][1][0] < 840 and info[0][0][1] > 125 and info[0][2][1] < 205:
         return True
     else:
         return False
@@ -109,9 +109,7 @@ def groupping_func(result):
 def character_extraction(img_path):
     full_text = ""
     if os.path.exists(img_path):
-        test = reader.readtext(img_path)
-        result = groupping_func(test)
-        print(test)##########################################################################
+        result = groupping_func(reader.readtext(img_path))
         full_text = '\n'.join(result)
     else:
         print(f"Error : file {img_path} not Found!")
